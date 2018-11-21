@@ -1,5 +1,6 @@
 import React from 'react'
 import { Modal, Form, Spin, message } from 'igroot'
+const { Item } = Form
 function getDisplayName(WrappedComponent) {
   return WrappedComponent.displayName
     || WrappedComponent.name
@@ -14,7 +15,11 @@ function getDisplayName(WrappedComponent) {
  * 1.modalWillOpen 模态框开启时
  * 2.modalWillClose 模态框关闭时
  */
-export default ({ formOptions, create, modalProps, update }) =>
+export { Item }
+
+export default (
+  { formOptions = { formKey: 'id' }, create, modalProps = {}, update }
+) =>
   WrappedComponent => {
     class EditModal extends WrappedComponent {
       static displayName = `EditModal(${getDisplayName(WrappedComponent)})`
@@ -24,9 +29,11 @@ export default ({ formOptions, create, modalProps, update }) =>
           ...this.state,
           visible: false,
           loading: false,
-          stateTitle: '新建'
+          title: '',
+          status: 'close'
         }
         this.modalWillOpen = this.modalWillOpen ? this.modalWillOpen.bind(this) : () => { }
+        this.modalDidOpen = this.modalDidOpen ? this.modalDidOpen.bind(this) : () => { }
         this.modalWillClose = this.modalWillClose ? this.modalWillClose.bind(this) : () => { }
       }
 
@@ -36,86 +43,98 @@ export default ({ formOptions, create, modalProps, update }) =>
         this.props.getUpdateFunction && this.props.getUpdateFunction(this._openWithSetValue)
       }
 
-      _openWithSetValue = parmas => {
+      _openWithSetValue = params => {
         // 模态框打开
-        this.modalWillOpen(parmas)
-        this.setState({ visible: true, stateTitle: '修改' })
-        const { parmasFilterFunction, formKey } = formOptions
-        const state = this.state
-        this[formKey] = parmas[formKey]
         const { resetFields, setFieldsValue } = this.props.form
-        let _parmas = {}
-        _parmas = parmasFilterFunction ? parmasFilterFunction(parmas, state) : parmas
+        const { paramsFilterFunction, formKey } = formOptions
+        const state = this.state
+        this.modalWillOpen(params)
+        let _params = {}
+        _params = paramsFilterFunction ? paramsFilterFunction(params, state) : params
         resetFields()
         setTimeout(() => {
-          setFieldsValue(_parmas)
+          setFieldsValue(_params)
         }, 0)
+        this[formKey] = params[formKey]
+        this.setState({ visible: true, title: `修改 ${modalProps.title ? modalProps.title : ''}`, status: 'edit' }, () => {
+          this.modalDidOpen(params)
+        })
+
       }
 
       _openWithoutSetValue = () => {
         const { formKey } = formOptions
-        this.modalWillOpen()
-        this.setState({ visible: true, stateTitle: '新建' })
-        this[formKey] = undefined
         const { resetFields } = this.props.form
+        this.modalWillOpen()
+        this[formKey] = undefined
         resetFields()
+        this.setState({ visible: true, title: `新建 ${modalProps.title ? modalProps.title : ''}`, status: 'create' }, () => {
+          this.modalDidOpen()
+        })
+
       }
 
-      formCreate = parmas => {
+      formCreate = params => {
         const state = this.state
-        create && create(parmas, state, res => {
-          this.setState({ loading: false })
+        const promise = create && create(params, state, res => {
           if (res) {
+            this._close()
             message.success('操作成功！')
             // 模态框关闭
-            this.modalWillClose()
-            this.setState({ visible: false })
             this.props.reload && this.props.reload()
           } else {
+            this.setState({ loading: false })
             message.error(' 操作失败')
           }
         })
+        promise && promise.catch(err => this.setState({ loading: false }))
+
       }
 
-      formUpdate = parmas => {
+      formUpdate = params => {
         const state = this.state
-        update && update(parmas, state, res => {
-          this.setState({ loading: false })
+        const promise = update && update(params, state, res => {
           if (res) {
+            this._close()
             message.success('操作成功！')
             // 模态框关闭
-            this.modalWillClose()
-            this.setState({ visible: false })
             this.props.reload && this.props.reload()
           } else {
+            this.setState({ loading: false })
             message.error('操作失败')
           }
         })
+        promise && promise.catch(err => this.setState({ loading: false }))
       }
 
 
       submit = () => {
         const { validateFields } = this.props.form
-        validateFields((err, parmas) => {
+        validateFields((err, params) => {
           if (err) return
           const { formKey } = formOptions
           this.setState({ loading: true })
           if (this[formKey]) {
-            parmas[formKey] = this[formKey]
-            this.formUpdate(parmas)
+            params[formKey] = this[formKey]
+            this.formUpdate(params)
           } else {
-            this.formCreate(parmas)
+            this.formCreate(params)
           }
         })
       }
 
+      _close = () => {
+        this.modalWillClose()
+        this.setState({ visible: false, status: 'close', loading: false })
+      }
+
       render() {
-        const { visible, loading, stateTitle } = this.state
+        const { visible, loading, title } = this.state
         return <Modal
-          title={`${stateTitle}${modalProps.title ? modalProps.title : ''}`}
           {...modalProps}
+          title={title}
           visible={visible}
-          onCancel={() => this.setState({ visible: false })}
+          onCancel={this._close}
           onOk={this.submit}
           confirmLoading={loading}
         >
