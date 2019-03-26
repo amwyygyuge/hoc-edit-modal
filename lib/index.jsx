@@ -18,8 +18,8 @@ function getDisplayName(WrappedComponent) {
 export { Item }
 
 export default (
-  { formOptions = { formKey: 'id' }, create, modalProps = {}, update }
-) =>
+  { formOptions = { formKey: 'id' }, create, modalProps = {}, update, initState = () => { } }
+  ) =>
   WrappedComponent => {
     class EditModal extends WrappedComponent {
       static displayName = `EditModal(${getDisplayName(WrappedComponent)})`
@@ -51,6 +51,8 @@ export default (
         this.modalWillOpen(params)
         let _params = {}
         _params = paramsFilterFunction ? paramsFilterFunction(params, state) : params
+        const initValues = initState(params, state)
+        initValues && this.setState({ ...initValues })
         resetFields()
         setTimeout(() => {
           setFieldsValue(_params)
@@ -67,6 +69,9 @@ export default (
         const { resetFields } = this.props.form
         this.modalWillOpen()
         this[formKey] = undefined
+        const state = this.state
+        const initValues = initState({}, state)
+        initValues && this.setState({ ...initValues })
         resetFields()
         this.setState({ visible: true, title: `新建 ${modalProps.title ? modalProps.title : ''}`, status: 'create' }, () => {
           this.modalDidOpen()
