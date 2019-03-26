@@ -69,7 +69,9 @@ exports.default = function (_ref) {
       create = _ref.create,
       _ref$modalProps = _ref.modalProps,
       modalProps = _ref$modalProps === undefined ? {} : _ref$modalProps,
-      update = _ref.update;
+      update = _ref.update,
+      _ref$initState = _ref.initState,
+      initState = _ref$initState === undefined ? function () {} : _ref$initState;
   return function (WrappedComponent) {
     var EditModal = function (_WrappedComponent) {
       _inherits(EditModal, _WrappedComponent);
@@ -91,6 +93,8 @@ exports.default = function (_ref) {
           _this.modalWillOpen(params);
           var _params = {};
           _params = paramsFilterFunction ? paramsFilterFunction(params, state) : params;
+          var initValues = initState(params, state);
+          initValues && _this.setState(_extends({}, initValues));
           resetFields();
           setTimeout(function () {
             setFieldsValue(_params);
@@ -107,6 +111,9 @@ exports.default = function (_ref) {
 
           _this.modalWillOpen();
           _this[formKey] = undefined;
+          var state = _this.state;
+          var initValues = initState({}, state);
+          initValues && _this.setState(_extends({}, initValues));
           resetFields();
           _this.setState({ visible: true, title: '\u65B0\u5EFA ' + (modalProps.title ? modalProps.title : ''), status: 'create' }, function () {
             _this.modalDidOpen();
